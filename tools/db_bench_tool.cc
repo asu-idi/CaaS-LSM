@@ -69,6 +69,7 @@
 #ifndef ROCKSDB_LITE
 #include "rocksdb/utilities/replayer.h"
 #endif  // ROCKSDB_LITE
+#include "db/compaction/compaction_service.h"
 #include "rocksdb/utilities/sim_cache.h"
 #include "rocksdb/utilities/transaction.h"
 #include "rocksdb/utilities/transaction_db.h"
@@ -535,6 +536,9 @@ static ROCKSDB_NAMESPACE::CompactionPri FLAGS_compaction_pri_e;
 DEFINE_int32(compaction_pri,
              (int32_t)ROCKSDB_NAMESPACE::Options().compaction_pri,
              "priority of files to compaction: by size or by data age");
+
+DEFINE_bool(allow_remote_compaction, false,
+            "Allow the remote compaction service");
 
 DEFINE_int32(universal_size_ratio, 0,
              "Percentage flexibility while comparing file size "
@@ -3175,7 +3179,7 @@ class Benchmark {
         blob_db::DestroyBlobDB(FLAGS_db, options, blob_db::BlobDBOptions());
       }
 #endif  // !ROCKSDB_LITE
-      DestroyDB(FLAGS_db, options);
+        //      DestroyDB(FLAGS_db, options);
       if (!FLAGS_wal_dir.empty()) {
         FLAGS_env->DeleteDir(FLAGS_wal_dir);
       }
@@ -3676,16 +3680,18 @@ class Benchmark {
           method = nullptr;
         } else {
           if (db_.db != nullptr) {
+            db_.db->Close();
             db_.DeleteDBs();
-            DestroyDB(FLAGS_db, open_options_);
+            //            DestroyDB(FLAGS_db, open_options_);
           }
           Options options = open_options_;
           for (size_t i = 0; i < multi_dbs_.size(); i++) {
+            multi_dbs_[i].db->Close();
             delete multi_dbs_[i].db;
             if (!open_options_.wal_dir.empty()) {
               options.wal_dir = GetPathForMultiple(open_options_.wal_dir, i);
             }
-            DestroyDB(GetPathForMultiple(FLAGS_db, i), options);
+            //            DestroyDB(GetPathForMultiple(FLAGS_db, i), options);
           }
           multi_dbs_.clear();
         }
@@ -4804,6 +4810,14 @@ class Benchmark {
               DBWithColumnFamilies* db) {
     uint64_t open_start = FLAGS_report_open_timing ? FLAGS_env->NowNanos() : 0;
     Status s;
+    if (FLAGS_allow_remote_compaction) {
+      std::vector<std::shared_ptr<EventListener>> remote_listeners;
+      std::vector<std::shared_ptr<TablePropertiesCollectorFactory>>
+          remote_table_properties_collector_factories;
+      options.compaction_service = std::make_shared<MyTestCompactionService>(
+          db_name, options, dbstats, remote_listeners,
+          remote_table_properties_collector_factories);
+    }
     // Open with column families if necessary.
     if (FLAGS_num_column_families > 1) {
       size_t num_hot = FLAGS_num_column_families;

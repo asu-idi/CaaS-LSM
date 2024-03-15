@@ -863,7 +863,7 @@ Status DBImplSecondary::CompactWithoutInstallation(
 Status DB::OpenAndCompact(
     const OpenAndCompactOptions& options, const std::string& name,
     const std::string& output_directory, const std::string& input,
-    std::string* output,
+    std::string* output, uint64_t* start_ms, uint64_t* open_db_ms,
     const CompactionServiceOptionsOverride& override_options) {
   if (options.canceled && options.canceled->load(std::memory_order_acquire)) {
     return Status::Incomplete(Status::SubCode::kManualCompactionPaused);
@@ -914,11 +914,15 @@ Status DB::OpenAndCompact(
   DB* db;
   std::vector<ColumnFamilyHandle*> handles;
 
+  uint64_t open = SystemClock::Default()->NowMicros();
+
   s = DB::OpenAsSecondary(compaction_input.db_options, name, output_directory,
                           column_families, &handles, &db);
   if (!s.ok()) {
     return s;
   }
+  *start_ms = SystemClock::Default()->NowMicros();
+  *open_db_ms = *start_ms - open;
 
   CompactionServiceResult compaction_result;
   DBImplSecondary* db_secondary = static_cast_with_check<DBImplSecondary>(db);
@@ -940,10 +944,11 @@ Status DB::OpenAndCompact(
 
 Status DB::OpenAndCompact(
     const std::string& name, const std::string& output_directory,
-    const std::string& input, std::string* output,
+    const std::string& input, std::string* output, uint64_t* start_ms,
+    uint64_t* open_db_ms,
     const CompactionServiceOptionsOverride& override_options) {
   return OpenAndCompact(OpenAndCompactOptions(), name, output_directory, input,
-                        output, override_options);
+                        output, start_ms, open_db_ms, override_options);
 }
 
 #else   // !ROCKSDB_LITE

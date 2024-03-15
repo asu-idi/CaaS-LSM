@@ -8,6 +8,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
+#include "compaction_service.grpc.pb.h"
 #include "db/compaction/compaction_job.h"
 #include "db/compaction/compaction_state.h"
 #include "logging/logging.h"
@@ -34,12 +35,29 @@ CompactionJob::ProcessKeyValueCompactionWithCompactionService(
 
   const std::vector<CompactionInputFiles>& inputs =
       *(compact_->compaction->inputs());
+
+  uint64_t num_entries = 0;
+  uint64_t num_deletions = 0;
+  uint64_t compensated_file_size = 0;
+
   for (const auto& files_per_level : inputs) {
     for (const auto& file : files_per_level.files) {
       compaction_input.input_files.emplace_back(
           MakeTableFileName(file->fd.GetNumber()));
+      num_entries += file->num_entries;
+      num_deletions += file->num_deletions;
+      compensated_file_size += file->compensated_file_size;
     }
   }
+  CompactionAdditionInfo compaction_addition_info{
+      sub_compact->compaction->score(),
+      num_entries,
+      num_deletions,
+      compensated_file_size,
+      compaction_input.output_level,
+      compaction->start_level(),
+      db_options_.clock->NowMicros()};
+
   compaction_input.column_family.name =
       compaction->column_family_data()->GetName();
   compaction_input.column_family.options =
@@ -103,7 +121,7 @@ CompactionJob::ProcessKeyValueCompactionWithCompactionService(
                  compaction_input.column_family.name.c_str(), job_id_);
   std::string compaction_result_binary;
   compaction_status = db_options_.compaction_service->WaitForCompleteV2(
-      info, &compaction_result_binary);
+      info, &compaction_addition_info, &compaction_result_binary);
 
   if (compaction_status == CompactionServiceJobStatus::kUseLocal) {
     ROCKS_LOG_INFO(db_options_.info_log,
@@ -205,6 +223,10 @@ CompactionJob::ProcessKeyValueCompactionWithCompactionService(
   RecordTick(stats_, REMOTE_COMPACT_READ_BYTES, compaction_result.bytes_read);
   RecordTick(stats_, REMOTE_COMPACT_WRITE_BYTES,
              compaction_result.bytes_written);
+  RecordTimeToHistogram(stats_, REMOTE_COMPACT_PROCESS,
+                        compaction_addition_info.trigger_ms);
+  RecordTimeToHistogram(stats_, REMOTE_COMPACT_OPEN_DB_DELAY,
+                        compaction_addition_info.num_entries);
   return CompactionServiceJobStatus::kSuccess;
 }
 

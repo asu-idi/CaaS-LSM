@@ -418,6 +418,28 @@ struct CompactionServiceJobInfo {
         priority(priority_) {}
 };
 
+struct CompactionAdditionInfo {
+  double score;
+  uint64_t num_entries;
+  uint64_t num_deletions;
+  uint64_t compensated_file_size;
+  int output_level;
+  int start_level;
+  uint64_t trigger_ms;
+
+  CompactionAdditionInfo(double _score, uint64_t _num_entries,
+                         uint64_t _num_deletions,
+                         uint64_t _compensated_file_size, int _output_level,
+                         int _start_level, uint64_t _trigger_ms)
+      : score(_score),
+        num_entries(_num_entries),
+        num_deletions(_num_deletions),
+        compensated_file_size(_compensated_file_size),
+        output_level(_output_level),
+        start_level(_start_level),
+        trigger_ms(_trigger_ms) {}
+};
+
 // Exceptions MUST NOT propagate out of overridden functions into RocksDB,
 // because RocksDB is not exception-safe. This could cause undefined behavior
 // including data loss, unreported corruption, deadlocks, and more.
@@ -440,6 +462,7 @@ class CompactionService : public Customizable {
   // Wait for remote compaction to finish.
   virtual CompactionServiceJobStatus WaitForCompleteV2(
       const CompactionServiceJobInfo& /*info*/,
+      CompactionAdditionInfo* /*addition_info*/,
       std::string* /*compaction_service_result*/) {
     return CompactionServiceJobStatus::kUseLocal;
   }
@@ -2090,6 +2113,36 @@ struct CompactionServiceOptionsOverride {
 struct OpenAndCompactOptions {
   // Allows cancellation of an in-progress compaction.
   std::atomic<bool>* canceled = nullptr;
+
+#ifdef HDFS
+  std::string hdfs_address = "hdfs://10.218.107.48:9000/";
+
+  std::string csa_address = "10.218.107.48:8010";
+
+  std::string pro_cp_address = "10.218.107.48:8020";
+
+  int32_t check_time_interval = 1;
+
+  int64_t csa_max_concurrent_tasks = 5;
+
+  uint64_t max_accumulation_in_procp = 5;
+
+  uint64_t max_reschedule = 5;
+#else
+  //  std::string hdfs_address = "hdfs://10.218.106.144:9000/";
+
+  std::string csa_address = "10.218.107.48:8010";
+
+  std::string pro_cp_address = "10.218.107.48:8020";
+
+  int32_t check_time_interval = 1;
+
+  int64_t csa_max_concurrent_tasks = 5;
+
+  uint64_t max_accumulation_in_procp = 5;
+
+  uint64_t max_reschedule = 5;
+#endif
 };
 
 #ifndef ROCKSDB_LITE

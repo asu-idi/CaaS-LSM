@@ -290,13 +290,14 @@ class DB {
   // `CompactionService`.
   static Status OpenAndCompact(
       const std::string& name, const std::string& output_directory,
-      const std::string& input, std::string* output,
+      const std::string& input, std::string* output, uint64_t* start_ms,
+      uint64_t* open_db_ms,
       const CompactionServiceOptionsOverride& override_options);
 
   static Status OpenAndCompact(
       const OpenAndCompactOptions& options, const std::string& name,
       const std::string& output_directory, const std::string& input,
-      std::string* output,
+      std::string* output, uint64_t* start_ms, uint64_t* open_db_ms,
       const CompactionServiceOptionsOverride& override_options);
 
   // Experimental and subject to change

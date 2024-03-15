@@ -71,6 +71,10 @@
 #include "util/thread_local.h"
 #include "util/threadpool_imp.h"
 
+#ifdef HDFS
+#include "plugin/hdfs/env_hdfs.h"
+#endif
+
 #if !defined(TMPFS_MAGIC)
 #define TMPFS_MAGIC 0x01021994
 #endif
@@ -416,6 +420,13 @@ PosixEnv::PosixEnv()
       mu_(mu_storage_),
       threads_to_join_(threads_to_join_storage_),
       allow_non_owner_access_(allow_non_owner_access_storage_) {
+#ifdef HDFS
+  OpenAndCompactOptions options;
+  std::shared_ptr<FileSystem> fs;
+  Status s = NewHdfsFileSystem(options.hdfs_address, &fs);
+  assert(s.ok());
+  file_system_ = std::move(fs);
+#endif
   ThreadPoolImpl::PthreadCall("mutex_init", pthread_mutex_init(&mu_, nullptr));
   for (int pool_id = 0; pool_id < Env::Priority::TOTAL; ++pool_id) {
     thread_pools_[pool_id].SetThreadPriority(

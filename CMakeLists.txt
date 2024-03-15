@@ -66,8 +66,9 @@ endif(CCACHE_FOUND)
 
 option(WITH_JEMALLOC "build with JeMalloc" OFF)
 option(WITH_LIBURING "build with liburing" ON)
-option(WITH_SNAPPY "build with SNAPPY" OFF)
-option(WITH_LZ4 "build with lz4" OFF)
+option(WITH_SNAPPY "build with SNAPPY" ON)
+option(WITH_HDFS "build with HDFS and write data to HDFS" OFF)
+option(WITH_LZ4 "build with lz4" ON)
 option(WITH_ZLIB "build with zlib" OFF)
 option(WITH_ZSTD "build with zstd" OFF)
 option(WITH_WINDOWS_UTF8_FILENAMES "use UTF8 as characterset for opening files, regardles of the system code page" OFF)
@@ -86,6 +87,8 @@ if( NOT DEFINED CMAKE_CXX_STANDARD )
 endif()
 
 include(CMakeDependentOption)
+
+include(${PROJECT_SOURCE_DIR}/cmake/modules/grpc.cmake)
 
 if(MSVC)
   option(WITH_GFLAGS "build with GFlags" OFF)
@@ -643,6 +646,49 @@ if(USE_FOLLY)
 endif()
 find_package(Threads REQUIRED)
 
+# Proto file
+get_filename_component(compaction_service_proto "db/compaction/remote_compaction/protos/compaction_service.proto" ABSOLUTE)
+get_filename_component(compaction_service_proto_path "${compaction_service_proto}" PATH)
+
+# Generated sources
+set(compaction_service_proto_srcs "${CMAKE_CURRENT_BINARY_DIR}/compaction_service.pb.cc")
+set(compaction_service_proto_hdrs "${CMAKE_CURRENT_BINARY_DIR}/compaction_service.pb.h")
+set(compaction_service_grpc_srcs "${CMAKE_CURRENT_BINARY_DIR}/compaction_service.grpc.pb.cc")
+set(compaction_service_grpc_hdrs "${CMAKE_CURRENT_BINARY_DIR}/compaction_service.grpc.pb.h")
+add_custom_command(
+        OUTPUT "${compaction_service_proto_srcs}" "${compaction_service_proto_hdrs}" "${compaction_service_grpc_srcs}" "${compaction_service_grpc_hdrs}"
+        COMMAND ${_PROTOBUF_PROTOC}
+        ARGS --grpc_out "${CMAKE_CURRENT_BINARY_DIR}"
+        --cpp_out "${CMAKE_CURRENT_BINARY_DIR}"
+        -I "${compaction_service_proto_path}"
+        --plugin=protoc-gen-grpc="${_GRPC_CPP_PLUGIN_EXECUTABLE}"
+        "${compaction_service_proto}"
+        DEPENDS "${compaction_service_proto}")
+
+# Include generated *.pb.h files
+include_directories("${CMAKE_CURRENT_BINARY_DIR}")
+
+# compaction_service_grpc_proto
+add_library(compaction_service_grpc_proto
+        ${compaction_service_grpc_srcs}
+        ${compaction_service_grpc_hdrs}
+        ${compaction_service_proto_srcs}
+        ${compaction_service_proto_hdrs})
+target_link_libraries(compaction_service_grpc_proto
+        ${_REFLECTION}
+        ${_GRPC_GRPCPP}
+        ${_PROTOBUF_LIBPROTOBUF})
+
+# compaction_service_helper
+#add_library(compaction_service_helper
+#        "db/compaction/remote_compaction/job_distributor.h"
+#        "db/compaction/remote_compaction/job_distributor.cc")
+#target_link_libraries(compaction_service_helper
+#        compaction_service_grpc_proto
+#        ${_REFLECTION}
+#        ${_GRPC_GRPCPP}
+#        ${_PROTOBUF_LIBPROTOBUF})
+
 # Main library source code
 
 set(SOURCES
@@ -952,7 +998,11 @@ set(SOURCES
         utilities/ttl/db_ttl_impl.cc
         utilities/wal_filter.cc
         utilities/write_batch_with_index/write_batch_with_index.cc
-        utilities/write_batch_with_index/write_batch_with_index_internal.cc)
+        utilities/write_batch_with_index/write_batch_with_index_internal.cc
+        db/compaction/compaction_service.cc
+        ${compaction_service_grpc_srcs}
+        ${compaction_service_proto_srcs}
+        )
 
 list(APPEND SOURCES
   utilities/transactions/lock/range/range_tree/lib/locktree/concurrent_tree.cc
@@ -967,6 +1017,11 @@ list(APPEND SOURCES
   utilities/transactions/lock/range/range_tree/lib/standalone_port.cc
   utilities/transactions/lock/range/range_tree/lib/util/dbt.cc
   utilities/transactions/lock/range/range_tree/lib/util/memarena.cc)
+
+if(WITH_HDFS)
+  set(ROCKSDB_PLUGINS "hdfs")
+  add_definitions(-DHDFS)
+endif ()
 
 message(STATUS "ROCKSDB_PLUGINS: ${ROCKSDB_PLUGINS}")
 if ( ROCKSDB_PLUGINS )
@@ -1050,6 +1105,11 @@ if(USE_FOLLY_LITE)
   add_definitions(-DUSE_FOLLY -DFOLLY_NO_CONFIG)
   list(APPEND THIRDPARTY_LIBS glog)
 endif()
+
+list(APPEND THIRDPARTY_LIBS
+        ${_REFLECTION}
+        ${_GRPC_GRPCPP}
+        ${_PROTOBUF_LIBPROTOBUF})
 
 set(ROCKSDB_STATIC_LIB rocksdb${ARTIFACT_SUFFIX})
 set(ROCKSDB_SHARED_LIB rocksdb-shared${ARTIFACT_SUFFIX})
@@ -1486,6 +1546,19 @@ if(WITH_TESTS)
   set(TESTUTILLIB testutillib${ARTIFACT_SUFFIX})
   add_library(${TESTUTILLIB} STATIC ${TESTUTIL_SOURCE})
   target_link_libraries(${TESTUTILLIB} ${ROCKSDB_LIB} ${FOLLY_LIBS})
+
+  # Targets compaction_service_(client|server)
+  foreach(_target csa_server procp_server)
+    add_executable(${_target}
+            "db/compaction/remote_compaction/${_target}.cc")
+    target_link_libraries(${_target}
+            #          compaction_service_helper
+            ${_REFLECTION}
+            ${_GRPC_GRPCPP}
+            ${_PROTOBUF_LIBPROTOBUF}
+            ${ROCKSDB_LIB})
+  endforeach()
+
   if(MSVC)
     set_target_properties(${TESTUTILLIB} PROPERTIES COMPILE_FLAGS "/Fd${CMAKE_CFG_INTDIR}/testutillib${ARTIFACT_SUFFIX}.pdb")
   endif()
