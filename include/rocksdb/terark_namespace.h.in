@@ -1,0 +1,21 @@
+// Copyright (c) 2011-present, Facebook, Inc.  All rights reserved.
+//  This source code is licensed under both the GPLv2 (found in the
+//  COPYING file in the root directory) and Apache 2.0 License
+//  (found in the LICENSE.Apache file in the root directory).
+
+#pragma once
+
+#define WITH_TERARKDB
+#define TERARKDB_NAMESPACE @WITH_TERARKDB_NAMESPACE@
+
+#cmakedefine WITH_BYTEDANCE_METRICS
+#cmakedefine WITH_TERARK_ZIP
+#cmakedefine WITH_BOOSTLIB
+#cmakedefine WITH_DIAGNOSE_CACHE
+#cmakedefine WITH_ZENFS
+#cmakedefine REPORT_DEBUG_STACKTRACE
+
+#ifdef WITH_ZENFS
+#define ROCKSDB_NAMESPACE @WITH_TERARKDB_NAMESPACE@
+#define LIBZBD
+#endif
