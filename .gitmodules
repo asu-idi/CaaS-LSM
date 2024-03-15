@@ -1,0 +1,3 @@
+[submodule "third-party/rest_rpc"]
+	path = third-party/rest_rpc
+	url = https://github.com/qicosmos/rest_rpc.git
