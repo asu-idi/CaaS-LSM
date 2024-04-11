@@ -1,4 +1,4 @@
-# **CaaS-LSM: Compaction-as-a-Service for LSM-based Key-Value Stores in Storage Disaggregated Infrastructure**
+# **[SIGMOD'24] CaaS-LSM: Compaction-as-a-Service for LSM-based Key-Value Stores in Storage Disaggregated Infrastructure**
 
 ## **Dependencies**
 
