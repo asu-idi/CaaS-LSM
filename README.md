@@ -1,5 +1,13 @@
 # **[SIGMOD'24] CaaS-LSM: Compaction-as-a-Service for LSM-based Key-Value Stores in Storage Disaggregated Infrastructure**
 
+
+## Paper
+[CaaS-LSM: Compaction-as-a-Service for LSM-based Key-Value Stores in Storage Disaggregated Infrastructure](https://qiaolin-yu.github.io/pubs/V2mod124-yu.pdf)
+
+Qiaolin Yu, Chang Guo, Jay Zhuang, Viraj Thakkar, Jianguo Wang, Zhichao Cao.
+
+ACM Conference on Management of Data (SIGMOD 2024), Research Track Full Paper.
+
 ## **Dependencies**
 
 - Linux - Ubuntu
