@@ -18,6 +18,10 @@ ACM Conference on Management of Data (SIGMOD 2024), Research Track Full Paper.
 ## Baselines
 
 - Notice that multiple CSAs should bind with one Control Plane.
+- Please install the required dependencies before trying to compile.
+- Note that currently we only support **cmake**. Do not use the makefile directly.
+
+
 ### **Rocks-Local**
 Search the repository for this code and delete it.
 ```c++
