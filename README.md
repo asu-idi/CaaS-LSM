@@ -34,7 +34,12 @@ tmp_options.compaction_service = std::make_shared<MyTestCompactionService>(
 - Run Control Plane and CSA
 
 ```shell
-cd $build
+git clone git@github.com:asu-idi/CaaS-LSM.git
+cd CaaS-LSM
+mkdir build
+cd build
+cmake ..
+make -j100
 ./procp_server #run Control Plane server
 ./csa_server #run CSA server
 ```
@@ -46,8 +51,13 @@ cd $build
 - Run CSA
 
 ```
+git clone git@github.com:asu-idi/CaaS-LSM.git
+cd CaaS-LSM
 git checkout disaggre-rocksdb
-cd $build
+mkdir build
+cd build
+cmake ..
+make -j100
 ./csa_server # The name is the same, but the function of CSA is different with that of CaaS-LSM
 ```
 
